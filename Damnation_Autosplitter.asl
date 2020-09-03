@@ -12,6 +12,22 @@ state("DamnGame")
     int cinematicTimer: "binkw32.dll", 0x1771D6B3;  //seconds elapsed since cutscene started playing
     byte actNumber : 0x01B6BF28, 0x15;              //Value is in hex to ascii: 31 = '1' ... 37 = '7'
     string2 actPrefix : 0x01B6BF28, 0x14;           //First two chars of current act's base map. Read from the file name of the map's default checkpoint.
+
+
+    // Turns out the game writes/stores all level checkpoint data for the current Act in \Documents\my games\Damnation\DamnGame\Checkpoints\default_checkpoint.dsav
+    // By using the actPrefix pointer as a base, we can offset the pointer to look for specific checkpoints and level triggers... it's just going to need separate pointers for every split :(
+    byte act2_LevelStartup : "DamnGame.exe", 0x01B6BF28, 0xC73; 
+            /* 
+            Returns 1 when the player has started Mines.
+            If level select is used to skip to skies, the pointer points to the right file but the wrong area. Might not be the case if Mines level is played through, but I would need to test.
+            Could be solved by changing the pointer to include the string, then just checking if the pointer == "SeqEvent_LevelStartup_0".
+            */
+    byte act2_CheckpointActivated_1 : "DamnGame.exe", 0x01B6BF28, 0x6CE3;
+            /*
+            One out of 26 checkpoints in Act 2. The first one is CheckpointActivated_0, making this one the second checkpoint.
+            Wasn't able to trigger this value in testing, so I have no idea which checkpoint this is linked to.
+            Similar to the LevelStartup, the pointer becomes incorrect if level select is used to skip the Mines section.
+            */
 }
 
 startup 
