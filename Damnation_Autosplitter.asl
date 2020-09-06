@@ -13,9 +13,24 @@ state("DamnGame")
     byte actNumber : 0x01B6BF28, 0x15;              //Value is in hex to ascii: 31 = '1' ... 37 = '7'
     string2 actPrefix : 0x01B6BF28, 0x14;           //First two chars of current act's base map. Read from the file name of the map's default checkpoint.
 
+    string2 act1_DefaultCkp : 0x01B6BF28, 0x82;
+    string2 act2_DefaultCkp : 0x01B6BF28, 0x79;
+    string2 act3_DefaultCkp : 0x01B6BF28, 0x7F;
+    string2 act4_DefaultCkp : 0x01B6BF28, 0x82;
+    string2 act5_DefaultCkp : 0x01B6BF28, 0x7F;
+    string2 act6_DefaultCkp : 0x01B6BF28, 0x6A;
+
 
     // Turns out the game writes/stores all level checkpoint data for the current Act in \Documents\my games\Damnation\DamnGame\Checkpoints\default_checkpoint.dsav
     // By using the actPrefix pointer as a base, we can offset the pointer to look for specific checkpoints and level triggers... it's just going to need separate pointers for every split :(
+
+    // Update: Each level has it's own slightly different version of default_checkpoint which is stored at \Program Files (x86)\Steam\steamapps\common\Damnation\DamnGame\Checkpoints
+    // It will still need a pointer for each level, but I should be able to just look for keywords that are exclusive to that level's file (e.g. "W3A2_Skies_Main")
+    // The ideal way would be to find a section that changes between every act, then just do a not equals to split on level change.
+    // The WarCheckpoint at the top of the file is changes each level. The numbers aren't fully unique, but this might not be a problem.
+
+    // The WarCheckpoint Number jumps around for each act, but not for each level. Options are to either keep a large net string value or to have seperate pointers / pointer offsets for each act.
+
     byte act2_LevelStartup : "DamnGame.exe", 0x01B6BF28, 0xC73; 
             /* 
             Returns 1 when the player has started Mines.
@@ -79,17 +94,14 @@ init //Retriggers on game relaunch
 	vars.isLoading = false;
     vars.sectionNumber = 1;
 
-    /* Loop to count the number of splits needed. Is it even needed?
-    vars.totalSplits = 0;
-    for (int a = 1; a <= 6; a++){
-        if (settings["Act"+a]){
-            vars.totalSplits++;
-            int s = 1;
-            while (settings[a+"_"+s]){
-                vars.totalSplits++;
-                s++;
-            }
-        }
+    // Messing around with writting functions
+    /*
+    vars.UpdatePointers = (Action)(() => {
+
+    }
+    
+    vars.UpdateLevelPointers = (Func<string>)((defaultCkp) => {
+        vars.Example = memory.ReadString(modules.First().BaseAddress + 0x01B6BF28, 2);
     }
     */
 }
@@ -108,33 +120,13 @@ update
 start
 {
     //return (!old.inCinematicAlt && current.inCinematicAlt);
-    return (old.isLoadScreen && !current.isLoadScreen && current.actPrefix == "W1"); //Hardcoded for Arrowtree. Not perfect.
-
-    // This would be ideal if I can find a NONRANDOM value for the Arrowtree intro cinematic.
-    //return (current.cinematic == {248,179,219,10} && old.cinematic == {255,255,255,255});
+    return (old.isLoadScreen && !current.isLoadScreen && current.actPrefix == "W1"); //Doesn't work 20% of the time :(
 }
 
 split
 {
     /* 
-    //Katana Zero Example Code
-    //Tapes are the specific splits for the end level triggers. This is different from the splits for individual screens. There are only 11 tapes in the game.
-        if(vars.tape < 12 && vars.nextLevelTimerOld == -1 && vars.nextLevelTimerCur >= 0) {
-            if(settings[(vars.tape++)+"_tape"]) return true;
-        }
-    
-    //Unrevised sudocode
-        if(current.actNumber <= 6 && old.sectionNumber < current.sectionNumber) {
-            if (settings[current.actNumber + "_" + (vars.sectionNumber++)]) {
-                return true;
-            }
-        }
-
-        if (vars.split <= vars.totalSplits && (the current level OR section has changed)){
-            return true;
-        }
-
-    //revised
+    //revised sudo code
         if (old.actNumber < current.actNumber) {
             vars.sectionNumber = 1;   //reset section counter
             return true;
@@ -153,11 +145,32 @@ split
             return true;
         }
     } 
-       
-    /*if (old.actNumber < current.actNumber) 
-    {
-        return true;
-    }*/
+    
+    else if (old.act2_DefaultCkp != current.act2_DefaultCkp && current.actPrefix == "W3") {
+        vars.sectionNumber++;
+        string subsplit = string.Concat("3_", vars.sectionNumber);
+        if (settings[subsplit]) {
+            return true;
+        }
+    }
+
+    else if (old.act3_DefaultCkp != current.act3_DefaultCkp && current.actPrefix == "W4") {
+        vars.sectionNumber++;
+        string subsplit = string.Concat("4_", vars.sectionNumber);
+        if (settings[subsplit]) {
+            return true;
+        }
+    }
+
+    else if (old.act4_DefaultCkp != current.act4_DefaultCkp && current.actPrefix == "W5") {
+        vars.sectionNumber++;
+        string subsplit = string.Concat("5_", vars.sectionNumber);
+        if (settings[subsplit]) {
+            return true;
+        }
+    }
+    
+    // ASL doesn't support switch statements?
 
 }
 
